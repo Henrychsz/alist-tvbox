@@ -21,16 +21,19 @@ import java.time.Instant;
 @Service
 public class IndexTemplateService {
     public static final String AUTO_INDEX_VERSION = "auto_index_version";
-    private static final int indexVersion = 5;
-    public static final String paths = "\"/\uD83C\uDE34我的阿里分享/Tacit0924/【更新中的】和完结的电视剧.动漫.电影.综艺纪录片/【 剧 l 集 】/【电 l 视 l 剧】和完结的/【更新中】电视剧\", " +
-            "\"/\uD83C\uDE34我的阿里分享/Tacit0924/【更新中的】和完结的电视剧.动漫.电影.综艺纪录片/【动.漫.动.画电.影】/更新中的【动漫.动画电影】和完结的，还有一些大合集/还在【更新中】的动漫 4.2TB\", " +
-            "\"/\uD83C\uDE34我的阿里分享/Tacit0924/【更新中的】和完结的电视剧.动漫.电影.综艺纪录片/【综艺.纪录片.节目.晚会】/更新中的【综艺.纪录片.节目.晚会】和完结的/还在【更新中】的综艺 5 TB\", " +
-            "\"/\uD83C\uDE34我的阿里分享/Tacit0924/【更新中的】和完结的电视剧.动漫.电影.综艺纪录片/【电.影】/近期热门【电影】和一些电影大合集/【近期一些热门的电影】22TB\", " +
-            "\"/\uD83C\uDE34我的阿里分享/Tacit0924/【更新中的】和完结的电视剧.动漫.电影.综艺纪录片/【综艺.纪录片.节目.晚会】/更新中的【综艺.纪录片.节目.晚会】和完结的/一些近期【更新的】和完结的和纪录片合集 15TB/【一些近期更新的纪录片】(未整理国内外仅首字母)\", " +
-            "\"/\uD83C\uDE34我的阿里分享/Tacit0924/【更新中的】和完结的电视剧.动漫.电影.综艺纪录片/【 剧 l 集 】/【电 l 视 l 剧】和完结的/【近期完结的电视剧】(700多部剧)(40TB)(未整理国内外仅首字母)\", " +
-            "\"/\uD83C\uDE34我的阿里分享/Tacit0924/【更新中的】和完结的电视剧.动漫.电影.综艺纪录片/【动.漫.动.画电.影】/更新中的【动漫.动画电影】和完结的，还有一些大合集/【近期完结的动漫】3TB(未整理国内外仅首字母)\", " +
-            "\"/电视剧/中国/同步更新中\", \"/\uD83C\uDE34我的阿里分享/近期更新/01.电视剧.更新中\", \"/\uD83C\uDE34我的阿里分享/近期更新/02.电视剧.完结/2022年\", \"/\uD83C\uDE34我的阿里分享/近期更新/02.电视剧.完结/2023年\", " +
-            "\"/\uD83C\uDE34我的阿里分享/近期更新/03.电影/最新电影\", \"/\uD83C\uDE34我的阿里分享/近期更新/04.动漫剧集.更新中\", \"/\uD83C\uDE34我的阿里分享/近期更新/05.动漫剧集.完结\", \"/\uD83C\uDE34我的阿里分享/近期更新/06.综艺\", \"/\uD83C\uDE34我的阿里分享/近期更新/07.纪录片\"\n";
+    private static final int indexVersion = 32;
+    public static final String paths =
+            "\">/🈴我的阿里分享/Tacit0924\"," +
+                    "\"/🈴我的阿里分享/Tacit0924/【剧a集】/【剧丨集】更新中和完结的/【更新中】电视剧::2\"," +
+                    "\"/🈴我的阿里分享/Tacit0924/【剧a集】/【剧丨集】更新中和完结的/【更新中】电视剧/111/【已完结的】\"," +
+                    "\"/🈴我的阿里分享/Tacit0924/【剧a集】/【剧丨集】更新中和完结的/【更新中】电视剧/【日丨韩印泰等剧】/【2024已完结的】\"," +
+                    "\"/🈴我的阿里分享/Tacit0924/【剧a集】/【剧丨集】更新中和完结的/【更新中】电视剧/【欧丨美英法等剧】/【2024已完结的】\"," +
+                    "\"/🈴我的阿里分享/Tacit0924/【动.漫.动.画电.影】/更新中的【动漫.动画电影】和完结的，还有一些大合集/还在【更新中】的动漫 4.2TB\"," +
+                    "\"/🈴我的阿里分享/Tacit0924/【动.漫.动.画电.影】/更新中的【动漫.动画电影】和完结的，还有一些大合集/【近期完结的动漫】3TB(未整理国内外仅首字母)\"," +
+                    "\"/🈴我的阿里分享/Tacit0924/【综艺 纪录片 节目 晚会】/更新中的【综丨艺纪丨录片节丨目晚丨会 】和完结的/还在【更新中】的综艺 5 TB\"," +
+                    "\"/🈴我的阿里分享/Tacit0924/【综艺 纪录片 节目 晚会】/更新中的【综丨艺纪丨录片节丨目晚丨会 】和完结的/【近期的完结综艺】6TB(未整理国内外仅首字母)\"," +
+                    "\"/🈴我的阿里分享/Tacit0924/【综艺 纪录片 节目 晚会】/更新中的【综丨艺纪丨录片节丨目晚丨会 】和完结的/一些近期【更新的】和完结的和纪录片合集 15TB/【一些近期更新的纪录片】(未整理国内外仅首字母)\"," +
+                    "\"/🈴我的阿里分享/Tacit0924/【电a影】/近期热门【电影】和一些电影大合集/【近期一些热门的电影】22TB::2\"" ;
 
     private final IndexTemplateRepository indexTemplateRepository;
     private final SettingRepository settingRepository;
@@ -48,7 +51,7 @@ public class IndexTemplateService {
             return;
         }
 
-        long count = settingRepository.count();
+        long count = indexTemplateRepository.count();
         if (count > 0) {
             fixAutoIndex();
             return;
@@ -57,8 +60,9 @@ public class IndexTemplateService {
         IndexTemplateDto dto = new IndexTemplateDto();
         dto.setSiteId(1);
         dto.setScheduled(true);
+        dto.setScrape(true);
         dto.setScheduleTime("10|14|18|22");
-        dto.setData("{\"siteId\":1,\"indexName\":\"custom_index\",\"excludeExternal\":false,\"includeFiles\":false,\"incremental\":true,\"compress\":false,\"maxDepth\":1,\"sleep\":1000,\"paths\":[" + paths + "],\"stopWords\":[\"获取更多分享内容\"],\"excludes\":[]}");
+        dto.setData("{\"siteId\":1,\"indexName\":\"custom_index\",\"excludeExternal\":false,\"includeFiles\":false,\"incremental\":true,\"compress\":false,\"maxDepth\":1,\"sleep\":5000,\"paths\":[" + paths + "],\"stopWords\":[\"获取更多分享内容\"],\"excludes\":[]}");
         IndexTemplate template = create(dto);
         log.info("auto index template created: {}", template.getId());
         settingRepository.save(new Setting("auto_index", String.valueOf(template.getId())));
@@ -74,7 +78,7 @@ public class IndexTemplateService {
         IndexTemplate template = indexTemplateRepository.findById(id).orElse(null);
         if (template != null) {
             log.info("update auto index template ");
-            template.setData("{\"siteId\":1,\"indexName\":\"custom_index\",\"excludeExternal\":false,\"includeFiles\":false,\"incremental\":true,\"compress\":false,\"maxDepth\":1,\"sleep\":1000,\"paths\":[" + paths + "],\"stopWords\":[\"获取更多分享内容\"],\"excludes\":[]}");
+            template.setData("{\"siteId\":1,\"indexName\":\"custom_index\",\"excludeExternal\":false,\"includeFiles\":false,\"incremental\":true,\"compress\":false,\"maxDepth\":1,\"sleep\":5000,\"paths\":[" + paths + "],\"stopWords\":[\"获取更多分享内容\"],\"excludes\":[]}");
             indexTemplateRepository.save(template);
         }
         settingRepository.save(new Setting(AUTO_INDEX_VERSION, String.valueOf(indexVersion)));
@@ -101,6 +105,7 @@ public class IndexTemplateService {
         template.setName(dto.getName());
         template.setData(dto.getData());
         template.setSleep(dto.getSleep());
+        template.setScrape(dto.isScrape());
         template.setScheduled(dto.isScheduled());
         template.setScheduleTime(dto.getScheduleTime());
         template.setCreatedTime(Instant.now());
@@ -119,6 +124,7 @@ public class IndexTemplateService {
         template.setSiteId(dto.getSiteId());
         template.setName(dto.getName());
         template.setData(dto.getData());
+        template.setScrape(dto.isScrape());
         template.setScheduled(dto.isScheduled());
         template.setScheduleTime(dto.getScheduleTime());
         template.setCreatedTime(Instant.now());

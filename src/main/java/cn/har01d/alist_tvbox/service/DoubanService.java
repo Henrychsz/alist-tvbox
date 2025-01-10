@@ -42,7 +42,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -207,10 +206,9 @@ public class DoubanService {
         return list.size();
     }
 
-    @Scheduled(cron = "0 0 22 * * ?")
+    @Scheduled(cron = "0 0 20,22 * * ?")
     public void update() {
-        Versions versions = new Versions();
-        getRemoteVersion(versions);
+        getRemoteVersion(new Versions());
     }
 
     public String getRemoteVersion(Versions versions) {
@@ -219,7 +217,7 @@ public class DoubanService {
         }
 
         try {
-            String remote = restTemplate.getForObject("http://data.har01d.cn/movie_version", String.class).trim();
+            String remote = restTemplate.getForObject("http://har01d.org/movie_version", String.class).trim();
             versions.setMovie(remote);
             String local = settingRepository.findById(MOVIE_VERSION).map(Setting::getValue).orElse("0.0").trim();
             String cached = getCachedVersion();
@@ -232,7 +230,7 @@ public class DoubanService {
             }
             return remote;
         } catch (Exception e) {
-            log.warn("", e);
+            log.debug("", e);
         }
         return "";
     }
@@ -417,15 +415,15 @@ public class DoubanService {
         return null;
     }
 
-    public boolean updateMetaMovie(@PathVariable Integer id, Integer movieId) {
-        if (movieId == null || movieId < 100000) {
+    public boolean updateMetaMovie(Integer id, MetaDto dto) {
+        if (dto.getMovieId() == null || dto.getMovieId() < 100000) {
             throw new BadRequestException("电影ID不正确");
         }
         var meta = metaRepository.findById(id).orElse(null);
         if (meta == null) {
             return false;
         }
-        Movie movie = getById(movieId);
+        Movie movie = getById(dto.getMovieId());
         if (movie != null) {
             meta.setMovie(movie);
             meta.setYear(movie.getYear());
@@ -433,13 +431,14 @@ public class DoubanService {
             if (StringUtils.isNotBlank(movie.getDbScore())) {
                 meta.setScore((int) (Double.parseDouble(movie.getDbScore()) * 10));
             }
+            meta.setSiteId(dto.getSiteId());
             metaRepository.save(meta);
             return true;
         }
         return false;
     }
 
-    public boolean scrape(@PathVariable Integer id, String name) {
+    public boolean scrape(Integer id, String name) {
         var meta = metaRepository.findById(id).orElse(null);
         if (meta == null) {
             return false;
@@ -876,6 +875,7 @@ public class DoubanService {
         if (meta == null) {
             meta = new Meta();
             meta.setPath(path);
+            meta.setSiteId(dto.getSiteId());
         }
         Movie movie = getById(dto.getMovieId());
         if (movie != null) {

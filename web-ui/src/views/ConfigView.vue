@@ -8,8 +8,8 @@
               <span>AList运行状态</span>
               <div>
                 <el-button type="primary" v-if="store.aListStatus===0" @click="handleAList('start')">启动</el-button>
-                <el-button type="warning" v-if="store.aListStatus===2" @click="handleAList('restart')">重启</el-button>
-                <el-button type="danger" v-if="store.aListStatus===2" @click="handleAList('stop')">停止</el-button>
+                <el-button type="warning" v-if="store.aListStatus!==0" @click="handleAList('restart')">重启</el-button>
+                <el-button type="danger" v-if="store.aListStatus!==0" @click="handleAList('stop')">停止</el-button>
               </div>
             </div>
           </template>
@@ -64,7 +64,7 @@
                 active-text="开启"
                 inactive-text="关闭"
               />
-              <span class="hint">建议外网开启</span>
+              <span class="hint">建议外网开启，多个安全Token，逗号分割。</span>
             </el-form-item>
             <el-form-item prop="token" label="安全Token" v-if="form.enabledToken">
               <el-input v-model="form.token" type="password" show-password/>
@@ -142,34 +142,77 @@
             }}，后台更新中。
           </div>
         </el-card>
+        <el-card class="box-card" v-if="!store.xiaoya">
+          <template #header>
+            <div class="card-header">海报墙</div>
+          </template>
+          <el-form label-width="110px">
+            <el-form-item label="海报墙混合模式">
+              <el-switch
+                v-model="mixSiteSource"
+                inline-prompt
+                active-text="开启"
+                inactive-text="关闭"
+                @change="updateMixed"
+              />
+            </el-form-item>
+          </el-form>
+        </el-card>
       </el-col>
     </el-row>
 
-    <el-dialog v-model="dialogVisible" title="高级功能" width="50%">
+    <el-dialog id="adv" v-model="dialogVisible" title="高级设置" width="60%">
       <el-form label-width="180px">
         <el-form-item label="开放Token认证URL">
           <el-select v-model="openTokenUrl" class="m-2" placeholder="Select">
-            <el-option
-              v-for="item in options"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
+            <el-option-group
+              v-for="group in options"
+              :key="group.label"
+              :label="group.label"
+            >
+              <el-option
+                v-for="item in group.options"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-option-group>
           </el-select>
           <el-input v-model="openTokenUrl"/>
         </el-form-item>
         <el-form-item label="Client ID">
-          <el-input v-model="apiClientId" type="text"/>
+          <el-input v-model="apiClientId" type="text" placeholder="默认不要填写"/>
         </el-form-item>
         <el-form-item label="Client Secret">
-          <el-input v-model="apiClientSecret" type="password" show-password/>
+          <el-input v-model="apiClientSecret" type="password" show-password placeholder="默认不要填写"/>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="updateOpenTokenUrl">更新</el-button>
         </el-form-item>
-        <el-form-item label="阿里Token地址">
+        <el-form-item label="TMDB API Key">
+          <el-input v-model="tmdbApiKey" type="password" show-password/>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="updateTmdbApiKey">更新</el-button>
+        </el-form-item>
+        <el-form-item label="Cookie地址">
           <a :href="currentUrl + '/ali/token/' + aliSecret" target="_blank">
-            {{ currentUrl + '/ali/token/' + aliSecret }}
+            阿里 Token
+          </a><span class="hint"></span>
+          <a :href="currentUrl + '/ali/open/' + aliSecret" target="_blank">
+            阿里 Open Token
+          </a><span class="hint"></span>
+          <a :href="currentUrl + '/quark/cookie/' + aliSecret" target="_blank">
+            夸克 Cookie
+          </a><span class="hint"></span>
+          <a :href="currentUrl + '/uc/cookie/' + aliSecret" target="_blank">
+            UC Cookie
+          </a><span class="hint"></span>
+          <a :href="currentUrl + '/115/cookie/' + aliSecret" target="_blank">
+            115 Cookie
+          </a><span class="hint"></span>
+          <a :href="currentUrl + '/bili/cookie/' + aliSecret" target="_blank">
+             B站 Cookie
           </a>
         </el-form-item>
         <el-form-item label="订阅替换阿里token地址">
@@ -190,11 +233,53 @@
             @change="updateEnableHttps"
           />
         </el-form-item>
+        <el-form-item label="开启调试日志">
+          <el-switch
+            v-model="debugLog"
+            inline-prompt
+            active-text="开启"
+            inactive-text="关闭"
+            @change="updateDebugLog"
+          />
+        </el-form-item>
+        <el-form-item label="开启AList调试模式">
+          <el-switch
+            v-model="aListDebug"
+            inline-prompt
+            active-text="开启"
+            inactive-text="关闭"
+            @change="updateAListDebug"
+          />
+        </el-form-item>
+        <el-form-item label="开启阿里快传115">
+          <el-switch
+            v-model="aliTo115"
+            inline-prompt
+            active-text="开启"
+            inactive-text="关闭"
+            @change="updateAliTo115"
+          />
+          <span class="hint">资源页面添加115网盘</span>
+          <el-form-item label="115删除码">
+            <el-input v-model="deleteCode115" type="password" show-password/>
+            <el-button type="primary" @click="updateDeleteCode115">更新</el-button>
+          </el-form-item>
+        </el-form-item>
+        <!--        <el-form-item label="开启阿里延迟加载">-->
+        <!--          <el-switch-->
+        <!--            v-model="aliLazyLoad"-->
+        <!--            inline-prompt-->
+        <!--            active-text="开启"-->
+        <!--            inactive-text="关闭"-->
+        <!--            @change="updateAliLazyLoad"-->
+        <!--          />-->
+        <!--        </el-form-item>-->
         <el-form-item label="AList管理密码" v-if="!store.xiaoya">
           <el-input v-model="atvPass" type="password" show-password/>
         </el-form-item>
-        <el-form-item label="阿里文件删除延时">
-          <el-input-number v-model="deleteDelayTime" min="0"></el-input-number>秒
+        <el-form-item label="网盘文件删除延时">
+          <el-input-number v-model="deleteDelayTime" min="0"></el-input-number>
+          秒
           <span class="hint">0表示不删除</span>
         </el-form-item>
         <el-form-item>
@@ -209,7 +294,7 @@
       </el-form>
       <template #footer>
       <span class="dialog-footer">
-        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button @click="dialogVisible=false">取消</el-button>
       </span>
       </template>
     </el-dialog>
@@ -237,17 +322,35 @@ const increase = () => {
 }
 
 const options = [
-  {label: 'api.xhofe.top', value: 'https://api.xhofe.top/alist/ali_open/token'},
-  {label: 'api-cf.nn.ci', value: 'https://api-cf.nn.ci/alist/ali_open/token'},
-  {label: 'api.nn.ci ✈', value: 'https://api.nn.ci/alist/ali_open/token'},
-  {label: 'openapi.alipan.com', value: 'https://openapi.alipan.com/oauth/access_token'},
-  {label: 'aliyundrive-webdav', value: 'https://aliyundrive-oauth.messense.me/oauth/access_token'},
+  {
+    label: 'AList',
+    options: [
+      {label: 'api.xhofe.top', value: 'https://api.xhofe.top/alist/ali_open/token'},
+      {label: 'api.nn.ci ✈', value: 'https://api.nn.ci/alist/ali_open/token'},
+    ]
+  },
+  {
+    label: 'webdav',
+    options: [
+      {label: 'aliyundrive-webdav', value: 'https://aliyundrive-oauth.messense.me/oauth/access_token'},
+    ]
+  },
+  {
+    label: '阿里',
+    options: [
+      {label: 'openapi.alipan.com', value: 'https://openapi.alipan.com/oauth/access_token'}
+    ]
+  }
 ]
-const tooltip = 'sudo bash -c "$(curl -fsSL https://d.har01d.cn/update_xiaoya.sh)"'
+const tooltip = ref('sudo bash -c "$(curl -fsSL https://d.har01d.cn/update_xiaoya.sh)"')
 const aListStarted = ref(false)
 const aListRestart = ref(false)
 const mixSiteSource = ref(false)
 const replaceAliToken = ref(false)
+const debugLog = ref(false)
+const aListDebug = ref(false)
+const aliTo115 = ref(false)
+const aliLazyLoad = ref(false)
 const enableHttps = ref(false)
 const autoCheckin = ref(false)
 const dialogVisible = ref(false)
@@ -260,15 +363,16 @@ const indexRemoteVersion = ref('')
 const movieVersion = ref(0)
 const movieRemoteVersion = ref(0)
 const cachedMovieVersion = ref(0)
-const fileExpireHour = ref(6)
 const deleteDelayTime = ref(900)
 const aListStartTime = ref('')
 const openTokenUrl = ref('')
 const dockerAddress = ref('')
 const aliSecret = ref('')
+const tmdbApiKey = ref('')
 const atvPass = ref('')
 const apiClientId = ref('')
 const apiClientSecret = ref('')
+const deleteCode115 = ref('')
 const scheduleTime = ref(new Date(2023, 6, 20, 8, 0))
 const login = ref({
   username: '',
@@ -306,8 +410,18 @@ const resetAListToken = () => {
 }
 
 const updateOpenTokenUrl = () => {
-  axios.post('/api/open-token-url', {url: openTokenUrl.value, clientId: apiClientId.value, clientSecret: apiClientSecret.value}).then(() => {
+  axios.post('/api/open-token-url', {
+    url: openTokenUrl.value,
+    clientId: apiClientId.value,
+    clientSecret: apiClientSecret.value
+  }).then(() => {
     ElMessage.success('更新成功，重启生效')
+  })
+}
+
+const updateTmdbApiKey = () => {
+  axios.post('/api/settings', {name: 'tmdb_api_key', value: tmdbApiKey.value}).then(() => {
+    ElMessage.success('更新成功')
   })
 }
 
@@ -335,6 +449,36 @@ const updateEnableHttps = () => {
   })
 }
 
+const updateDebugLog = () => {
+  axios.post('/api/settings', {name: 'debug_log', value: debugLog.value}).then(() => {
+    ElMessage.success('更新成功')
+  })
+}
+
+const updateAListDebug = () => {
+  axios.post('/api/settings', {name: 'alist_debug', value: aListDebug.value}).then(() => {
+    ElMessage.success('更新成功，重启生效')
+  })
+}
+
+const updateAliTo115 = () => {
+  axios.post('/api/settings', {name: 'ali_to_115', value: aliTo115.value}).then(() => {
+    ElMessage.success('更新成功')
+  })
+}
+
+const updateDeleteCode115 = () => {
+  axios.post('/api/settings', {name: 'delete_code_115', value: deleteCode115.value}).then(() => {
+    ElMessage.success('更新成功')
+  })
+}
+
+const updateAliLazyLoad = () => {
+  axios.post('/api/settings', {name: 'ali_lazy_load', value: aliLazyLoad.value}).then(() => {
+    ElMessage.success('更新成功，重启生效')
+  })
+}
+
 const updateLogin = () => {
   axios.post('/api/alist/login', login.value).then(({data}) => {
     ElMessage.success('保存成功')
@@ -343,9 +487,7 @@ const updateLogin = () => {
 }
 
 const exportDatabase = () => {
-  axios.post('/api/settings/export').then(() => {
-    ElMessage.success('导出数据库成功')
-  })
+  window.location.href = '/api/settings/export' + '?t=' + new Date().getTime() + '&X-ACCESS-TOKEN=' + localStorage.getItem("token");
 }
 
 const updateScheduleTime = () => {
@@ -382,8 +524,7 @@ onMounted(() => {
     form.value.enabledToken = !!data.token
     scheduleTime.value = data.schedule_time || new Date(2023, 6, 20, 9, 0)
     aListStartTime.value = data.alist_start_time
-    fileExpireHour.value = +data.file_expire_hour || 6
-    deleteDelayTime.value = +data.delete_delay_time || 900
+    deleteDelayTime.value = +data.delete_delay_time
     movieVersion.value = data.movie_version
     indexVersion.value = data.index_version
     dockerVersion.value = data.docker_version
@@ -391,17 +532,24 @@ onMounted(() => {
     openTokenUrl.value = data.open_token_url
     dockerAddress.value = data.docker_address
     aliSecret.value = data.ali_secret
+    tmdbApiKey.value = data.tmdb_api_key
     autoCheckin.value = data.auto_checkin === 'true'
     aListRestart.value = data.alist_restart_required === 'true'
     replaceAliToken.value = data.replace_ali_token === 'true'
     enableHttps.value = data.enable_https === 'true'
+    debugLog.value = data.debug_log === 'true'
+    aListDebug.value = data.alist_debug === 'true'
+    aliTo115.value = data.ali_to_115 === 'true'
+    aliLazyLoad.value = data.ali_lazy_load === 'true'
     mixSiteSource.value = data.mix_site_source !== 'false'
     atvPass.value = data.atv_password
-    apiClientId.value = data.open_api_client_id
-    apiClientSecret.value = data.open_api_client_secret
+    apiClientId.value = data.open_api_client_id || ''
+    apiClientSecret.value = data.open_api_client_secret || ''
+    deleteCode115.value = data.delete_code_115 || ''
     login.value.username = data.alist_username
     login.value.password = data.alist_password
     login.value.enabled = data.alist_login === 'true'
+    tooltip.value = 'sudo bash -c "$(curl -fsSL https://d.har01d.cn/update_' + data.install_mode + '.sh)"'
   })
   axios.get('/api/alist/status').then(({data}) => {
     store.aListStatus = data
@@ -463,5 +611,17 @@ onUnmounted(() => {
 
 .changelog {
   color: #67c23a;
+}
+
+@media only screen and (max-width: 1500px) {
+  #adv {
+    width: 80%;
+  }
+}
+
+@media only screen and (max-width: 960px) {
+  #adv {
+    width: 96%;
+  }
 }
 </style>
