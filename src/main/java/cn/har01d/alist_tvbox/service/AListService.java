@@ -16,9 +16,13 @@ import cn.har01d.alist_tvbox.model.Response;
 import cn.har01d.alist_tvbox.model.SearchListResponse;
 import cn.har01d.alist_tvbox.model.SearchRequest;
 import cn.har01d.alist_tvbox.model.SearchResult;
+import cn.har01d.alist_tvbox.model.ShareInfo;
+import cn.har01d.alist_tvbox.model.ShareInfoResponse;
 import cn.har01d.alist_tvbox.model.VideoPreview;
 import cn.har01d.alist_tvbox.model.VideoPreviewResponse;
 import cn.har01d.alist_tvbox.util.Constants;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -29,10 +33,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -45,11 +48,17 @@ public class AListService {
     private final RestTemplate restTemplate;
     private final SiteService siteService;
     private final AppProperties appProperties;
+    private final Cache<String, VideoPreview> cache = Caffeine.newBuilder()
+            .maximumSize(10)
+            .expireAfterWrite(Duration.ofSeconds(895))
+            .build();
 
     public AListService(RestTemplateBuilder builder, SiteService siteService, AppProperties appProperties) {
         this.restTemplate = builder
                 .defaultHeader(HttpHeaders.ACCEPT, Constants.ACCEPT)
                 .defaultHeader(HttpHeaders.USER_AGENT, Constants.USER_AGENT)
+                .setConnectTimeout(Duration.ofSeconds(60))
+                .setReadTimeout(Duration.ofSeconds(60))
                 .build();
         this.siteService = siteService;
         this.appProperties = appProperties;
@@ -134,7 +143,30 @@ public class AListService {
         return true;
     }
 
+    public ShareInfo getShareInfo(Site site, String path) {
+        String url = getUrl(site) + "/api/fs/other";
+        FsRequest request = new FsRequest();
+        request.setMethod("share_info");
+        request.setPassword(site.getPassword());
+        request.setPath(path);
+        if (StringUtils.isNotBlank(site.getFolder())) {
+            request.setPath(fixPath(site.getFolder() + "/" + path));
+        }
+        log.debug("call api: {} request: {}", url, request);
+        ShareInfoResponse response = post(site, url, request, ShareInfoResponse.class);
+        logError(response);
+        log.debug("getShareInfo: {} {}", path, response.getData());
+        return response.getData();
+    }
+
     public VideoPreview preview(Site site, String path) {
+        String id = site.getId() + "-" + path;
+        VideoPreview preview = cache.getIfPresent(id);
+        if (preview != null) {
+            log.debug("cache: {}", id);
+            return preview;
+        }
+
         String url = getUrl(site) + "/api/fs/other";
         FsRequest request = new FsRequest();
         request.setPassword(site.getPassword());
@@ -147,6 +179,9 @@ public class AListService {
         VideoPreviewResponse response = post(site, url, request, VideoPreviewResponse.class);
         logError(response);
         log.debug("preview urls: {} {}", path, response.getData());
+        if (response.getData() != null) {
+            cache.put(id, response.getData());
+        }
         return response.getData();
     }
 

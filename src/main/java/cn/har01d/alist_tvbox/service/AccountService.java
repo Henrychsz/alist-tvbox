@@ -51,7 +51,6 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -342,6 +341,9 @@ public class AccountService {
             }
         }
 
+        //Utils.execute("/downloadZx.sh");
+        //Utils.execute("/downloadPg.sh");
+
         indexService.getRemoteVersion();
     }
 
@@ -390,6 +392,7 @@ public class AccountService {
                 log.info("update refresh token {}: {}", account.getId(), time);
                 account.setRefreshTokenTime(Instant.now());
                 Map<Object, Object> response = getAliToken(account.getRefreshToken());
+                account.setNickname((String) response.get("nick_name"));
                 account.setRefreshToken((String) response.get(REFRESH_TOKEN));
                 changed = true;
             }
@@ -423,6 +426,8 @@ public class AccountService {
         headers.put(HttpHeaders.REFERER, List.of("https://xhofe.top/"));
         Map<String, String> body = new HashMap<>();
         body.put(REFRESH_TOKEN, token);
+        body.put("client_id", settingRepository.findById("open_api_client_id").map(Setting::getValue).orElse(""));
+        body.put("client_secret", settingRepository.findById("open_api_client_secret").map(Setting::getValue).orElse(""));
         body.put("grant_type", REFRESH_TOKEN);
         log.debug("body: {}", body);
         HttpEntity<Map<String, String>> entity = new HttpEntity<>(body, headers);
@@ -571,7 +576,7 @@ public class AccountService {
         request.setUsername(username);
         request.setPassword(password);
         LoginResponse response = aListClient.postForObject("/api/auth/login", request, LoginResponse.class);
-        log.debug("AList login response: {}", response.getData());
+        log.debug("AList login response: {}", response);
         return response.getData().getToken();
     }
 
@@ -622,6 +627,7 @@ public class AccountService {
     public List<CheckinLog> getCheckinLogs(Integer id) {
         Account account = accountRepository.findById(id).orElseThrow(NotFoundException::new);
         Map<Object, Object> map = getAliToken(account.getRefreshToken());
+        account.setNickname((String) map.get("nick_name"));
         String accessToken = (String) map.get(ACCESS_TOKEN);
         Map<String, Object> body = new HashMap<>();
 
@@ -634,8 +640,13 @@ public class AccountService {
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
         ResponseEntity<CheckinResponse> response = restTemplate.exchange("https://member.aliyundrive.com/v2/activity/sign_in_list", HttpMethod.POST, entity, CheckinResponse.class);
 
+        log.debug("sign_in_list: {}", response.getBody());
         List<CheckinLog> list = new ArrayList<>();
         CheckinResult result = response.getBody().getResult();
+        if (result.getSignInCount() != account.getCheckinDays()) {
+            account.setCheckinDays(result.getSignInCount());
+            accountRepository.save(account);
+        }
         LocalDate date = LocalDate.now();
         for (Map<String, Object> signInLog : result.getSignInInfos()) {
             date = date.withDayOfMonth(Integer.parseInt(signInLog.get("day").toString()));
@@ -698,22 +709,26 @@ public class AccountService {
         result.setCheckinTime(now);
         account.setCheckinTime(Instant.now());
 
-        for (Map<String, Object> signInLog : result.getSignInLogs()) {
-            if (signInLog.get("status").equals("normal") && !signInLog.get("isReward").equals(true)) {
-                body = new HashMap<>();
-                body.put("signInDay", signInLog.get("day"));
-                log.debug("body: {}", body);
-
-                headers = new HttpHeaders();
-                headers.put(HttpHeaders.USER_AGENT, List.of(USER_AGENT));
-                headers.put(HttpHeaders.REFERER, List.of("https://www.aliyundrive.com/"));
-                headers.put(HttpHeaders.AUTHORIZATION, List.of("Bearer " + accessToken));
-                entity = new HttpEntity<>(body, headers);
-                ResponseEntity<RewardResponse> res = restTemplate.exchange("https://member.aliyundrive.com/v1/activity/sign_in_reward?_rx-s=mobile", HttpMethod.POST, entity, RewardResponse.class);
-                log.debug("RewardResponse: {}", res.getBody());
-                log.info("今日签到获得 {} {}", res.getBody().getResult().getName(), res.getBody().getResult().getDescription());
-            }
-        }
+//        for (Map<String, Object> signInLog : result.getSignInLogs()) {
+//            if (signInLog.get("status").equals("normal") && !signInLog.get("isReward").equals(true)) {
+//                try {
+//                    body = new HashMap<>();
+//                    body.put("signInDay", signInLog.get("day"));
+//                    log.debug("body: {}", body);
+//
+//                    headers = new HttpHeaders();
+//                    headers.put(HttpHeaders.USER_AGENT, List.of(USER_AGENT));
+//                    headers.put(HttpHeaders.REFERER, List.of("https://www.aliyundrive.com/"));
+//                    headers.put(HttpHeaders.AUTHORIZATION, List.of("Bearer " + accessToken));
+//                    entity = new HttpEntity<>(body, headers);
+//                    ResponseEntity<RewardResponse> res = restTemplate.exchange("https://member.aliyundrive.com/v1/activity/sign_in_reward?_rx-s=mobile", HttpMethod.POST, entity, RewardResponse.class);
+//                    log.debug("RewardResponse: {}", res.getBody());
+//                    log.info("今日签到获得 {} {}", res.getBody().getResult().getName(), res.getBody().getResult().getDescription());
+//                } catch (Exception e) {
+//                    log.warn("领取奖励失败 {}", signInLog.get("day"), e);
+//                }
+//            }
+//        }
 
         account.setCheckinDays(result.getSignInCount());
         log.info("{}  签到成功, 本月累计{}天", account.getNickname(), account.getCheckinDays());
@@ -784,9 +799,10 @@ public class AccountService {
     private void updateTokenToAList(Account account) {
         try {
             String token = login();
-            updateTokenToAList("RefreshToken-" + account.getId(), account.getRefreshToken(), account.getRefreshTokenTime(), token);
-            updateTokenToAList("RefreshTokenOpen-" + account.getId(), account.getOpenToken(), account.getOpenTokenTime(), token);
-            updateTokenToAList("AccessTokenOpen-" + account.getId(), account.getOpenAccessToken(), account.getOpenAccessTokenTime(), token);
+            updateTokenToAList(account.getId(), "RefreshToken-" + account.getId(), account.getRefreshToken(), account.getRefreshTokenTime(), token);
+            //updateTokenToAList(account.getId(), "AccessToken-" + account.getId(), "", null, token);
+            updateTokenToAList(account.getId(), "RefreshTokenOpen-" + account.getId(), account.getOpenToken(), account.getOpenTokenTime(), token);
+            updateTokenToAList(account.getId(), "AccessTokenOpen-" + account.getId(), account.getOpenAccessToken(), account.getOpenAccessTokenTime(), token);
         } catch (Exception e) {
             log.warn("", e);
         }
@@ -841,6 +857,7 @@ public class AccountService {
         }
 
         if (tokenChanged && account.isMaster()) {
+            account.setOpenAccessToken("");
             log.info("sync tokens for account {}", account);
             updateTokenToAList(account);
         }
@@ -973,8 +990,9 @@ public class AccountService {
         }
     }
 
-    private void updateTokenToAList(String key, String value, Instant time, String token) {
-        if (StringUtils.isBlank(value)) {
+    private void updateTokenToAList(Integer accountId, String key, String value, Instant time, String token) {
+        if (StringUtils.isEmpty(value)) {
+            log.warn("Token is empty: {} {} ", accountId, key);
             return;
         }
         if (time == null) {
@@ -985,6 +1003,7 @@ public class AccountService {
         Map<String, Object> body = new HashMap<>();
         body.put("key", key);
         body.put("value", value);
+        body.put("accountId", accountId);
         body.put("modified", time.atOffset(ZONE_OFFSET).toString());
         log.debug("updateTokenToAList: {}", body);
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
@@ -997,6 +1016,16 @@ public class AccountService {
         if (aliSecret.equals(id)) {
             return accountRepository.getFirstByMasterTrue()
                     .map(Account::getRefreshToken)
+                    .orElseThrow(NotFoundException::new);
+        }
+        return null;
+    }
+
+    public String getAliOpenRefreshToken(String id) {
+        String aliSecret = settingRepository.findById(ALI_SECRET).map(Setting::getValue).orElse("");
+        if (aliSecret.equals(id)) {
+            return accountRepository.getFirstByMasterTrue()
+                    .map(Account::getOpenToken)
                     .orElseThrow(NotFoundException::new);
         }
         return null;
@@ -1019,7 +1048,7 @@ public class AccountService {
 
     private int syncs = 0;
 
-    @Scheduled(initialDelay = 150_000, fixedDelay = 300_000)
+    @Scheduled(initialDelay = 200_000, fixedDelay = 300_000)
     public void syncTokens() {
         if (syncs > 1 && syncs % 12 != 0) {
             syncs++;
@@ -1040,19 +1069,19 @@ public class AccountService {
         List<Account> accounts = accountRepository.findAll();
         for (Account account : accounts) {
             AliToken token = map.get("RefreshToken-" + account.getId());
-            if (token != null && (account.getRefreshTokenTime() == null || token.getModified().isAfter(account.getRefreshTokenTime()))) {
+            if (token != null && StringUtils.isNotEmpty(token.getValue()) && (account.getRefreshTokenTime() == null || token.getModified().isAfter(account.getRefreshTokenTime()))) {
                 account.setRefreshToken(token.getValue());
                 account.setRefreshTokenTime(token.getModified());
             }
 
             token = map.get("RefreshTokenOpen-" + account.getId());
-            if (token != null && (account.getOpenTokenTime() == null || token.getModified().isAfter(account.getOpenTokenTime()))) {
+            if (token != null && StringUtils.isNotEmpty(token.getValue()) && (account.getOpenTokenTime() == null || token.getModified().isAfter(account.getOpenTokenTime()))) {
                 account.setOpenToken(token.getValue());
                 account.setOpenTokenTime(token.getModified());
             }
 
             token = map.get("AccessTokenOpen-" + account.getId());
-            if (token != null && (account.getOpenAccessTokenTime() == null || token.getModified().isAfter(account.getOpenAccessTokenTime()))) {
+            if (token != null && StringUtils.isNotEmpty(token.getValue()) && (account.getOpenAccessTokenTime() == null || token.getModified().isAfter(account.getOpenAccessTokenTime()))) {
                 account.setOpenAccessToken(token.getValue());
                 account.setOpenAccessTokenTime(token.getModified());
             }
@@ -1061,7 +1090,7 @@ public class AccountService {
                 updateTokenToAList(account);
             }
 
-            log.info("{} token time: {} {} {}", account.getId(), account.getRefreshTokenTime(), account.getOpenTokenTime(), account.getOpenAccessTokenTime());
+            log.info("account {} token time: {} {} {}", account.getId(), account.getRefreshTokenTime(), account.getOpenTokenTime(), account.getOpenAccessTokenTime());
         }
         accountRepository.saveAll(accounts);
     }

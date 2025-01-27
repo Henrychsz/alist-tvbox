@@ -3,7 +3,7 @@ import {onMounted, ref} from "vue";
 import axios from "axios";
 import {store} from "@/services/store";
 
-const url = ref('http://' + window.location.hostname + ':5344')
+const url = ref(window.location.protocol + '//' + window.location.hostname + ':' + (store.hostmode ? 5678 : 5344))
 const height = ref(window.innerHeight - 175)
 const width = ref(window.innerWidth - 40)
 
@@ -12,23 +12,36 @@ window.onresize = () => {
   width.value = window.innerWidth - 40
 }
 
-onMounted(() => {
+const loadBaseUrl = () => {
+  if (store.baseUrl) {
+    url.value = store.baseUrl
+    return
+  }
+
   axios.get('/api/sites/1').then(({data}) => {
+    url.value = data.url
     const re = /http:\/\/localhost:(\d+)/.exec(data.url)
     if (re) {
-      url.value = 'http://' + window.location.hostname + ':' + re[1]
+      url.value = window.location.protocol + '//' + window.location.hostname + ':' + re[1]
+      store.baseUrl = url.value
+      console.log('load AList ' + url.value)
     } else if (data.url == 'http://localhost') {
       axios.get('/api/alist/port').then(({data}) => {
         if (data) {
-          url.value = 'http://' + window.location.hostname + ':' + data
+          url.value = window.location.protocol + '//' + window.location.hostname + ':' + data
+          store.baseUrl = url.value
+          console.log('load AList ' + url.value)
         }
       })
     } else {
-      url.value = data.url
+      store.baseUrl = url.value
+      console.log('load AList ' + url.value)
     }
-    store.baseUrl = url.value
-    console.log('load AList ' + url.value)
   })
+}
+
+onMounted(() => {
+  loadBaseUrl()
 })
 </script>
 

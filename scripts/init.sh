@@ -1,5 +1,14 @@
 #!/bin/sh
 
+restore_database() {
+  if [ -f "/data/database.zip" ]; then
+    echo "=== restore database ==="
+    rm -f /data/atv.mv.db /data/atv.trace.db
+    java -cp /opt/atv/BOOT-INF/lib/h2-*.jar org.h2.tools.RunScript -url jdbc:h2:/data/atv -user sa -password password -script /data/database.zip -options compression zip
+    rm -f /data/database.zip
+  fi
+}
+
 init() {
   mkdir -p /var/lib/pxg /www/cgi-bin /data/atv /data/index /data/backup
   if [ -d /index ]; then
@@ -22,8 +31,8 @@ init() {
 
   sqlite3 /opt/alist/data/data.db ".read /alist.sql"
 
-  wget --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppelWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36" -T 30 -t 2 http://docker.xiaoya.pro/update/tvbox.zip -O tvbox.zip ||
-  wget --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppelWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36" --header="Host:docker.xiaoya.pro" -T 30 -t 2 http://104.21.17.247/update/tvbox.zip -O tvbox.zip || \
+  wget -T 30 -t 2 https://raw.githubusercontent.com/xiaoyaliu00/data/main/tvbox.zip -O tvbox.zip || \
+  wget -T 30 -t 2 http://har01d.org/tvbox.zip -O tvbox.zip || \
   cp /tvbox.zip ./
 
   unzip -q -o tvbox.zip
@@ -31,11 +40,36 @@ init() {
   rm -f mobi.tgz tvbox.zip index.zip index.txt version.txt update.zip
 }
 
+echo "Install mode: $INSTALL"
 cat data/app_version
 date
+uname -mor
 
+restore_database
 if [ -f /opt/alist/data/data.db ]; then
   echo "已经初始化成功"
 else
   init
+fi
+
+if [ ! -d /www/cat ]; then
+  echo "unzip cat.zip"
+  mkdir /www/cat
+  unzip -q -o /cat.zip -d /www/cat
+fi
+[ -d /data/cat ] && cp -r /data/cat/* /www/cat/
+
+[ ! -f /data/pg.zip ] && cp /pg.zip /data/pg.zip
+if [ ! -d /www/pg ]; then
+  echo "unzip pg.zip"
+  mkdir /www/pg
+  unzip -q -o /data/pg.zip -d /www/pg
+fi
+[ -d /data/pg ] && cp -r /data/pg/* /www/pg/
+
+[ ! -f /data/zx.zip ] && cp /zx.zip /data/zx.zip
+if [ ! -d /www/zx ]; then
+  echo "unzip zx.zip"
+  mkdir /www/zx
+  unzip -q -o /data/zx.zip -d /www/zx
 fi
